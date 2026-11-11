@@ -1,0 +1,58 @@
+name: omo-space
+title: Omo Space
+repo: https://github.com/omoresearch/hermes-omo-space
+sha: "fb471a637fdc5ed3be8cdb7f031c57b1bd75a99e"
+description: >-
+  Tell Hermes what kind of world you'd like ("a treehouse village in a forest", or nothing and
+  it gets creative): your own model designs a Minecraft world for your agents from your profiles,
+  every profile at a desk with a wall of screens in rooms named for what the agents do, and the
+  plugin writes it as a new world that builds itself around you when you open it. Run `hermes omo`
+  or ask any chat (omo_create_world tool). In Omo Space the screens are live agents you talk to and
+  a Hermes Board shows what every session is doing (metadata-only activity feed from hooks); with
+  plain Minecraft 26.2 it builds the same building with stand-in blocks. Made for people who have
+  never played: it says what to get, shows the controls and offers to open the game.
+  Disclosure — model: the world designer sends your wish plus profile names and profile.yaml
+  display names/descriptions to your own active model via ctx.llm (no keys handled; never chats,
+  memories, config values or secrets; --no-ai skips it). Network: otherwise only plain-HTTP GETs of
+  /health and /board.json to your own Omo bridge on loopback (non-loopback refused, proxies
+  ignored, redirects refused); no telemetry. Writes: its own plugin-data dir; `hermes omo create` /
+  omo_create_world write ONE new world folder in the Omo Space saves dir (or ~/.minecraft/saves
+  when only Minecraft is installed) and never touch an existing world; `hermes omo world` writes
+  only the path you pass or <world>/datapacks/hermes_hq/. Reads outside its data: every profile's
+  profile.yaml, config.yaml (model, platform and plugin names), cron/jobs.json (count) and
+  skill/plugin dir names; /proc/net/tcp{,6} on Linux to skip another user's bridge port. Commands:
+  opens the Omo Space app or Minecraft Launcher only after a yes at a terminal; `hermes omo setup`
+  runs `hermes -p <profile> plugins enable omo-space` / `config set` only after a y/N prompt. No
+  secrets, no background processes, never approves or blocks tools.
+maintainer: omoresearch
+tier: community
+category: general
+requires_hermes: ">=0.22.3"
+version: "0.2.0"
+docs_url: https://github.com/omoresearch/hermes-omo-space#readme
+image: https://raw.githubusercontent.com/omoresearch/hermes-omo-space/fb471a637fdc5ed3be8cdb7f031c57b1bd75a99e/docs/hermes-omo.png
+screenshots:
+  - https://raw.githubusercontent.com/omoresearch/hermes-omo-space/fb471a637fdc5ed3be8cdb7f031c57b1bd75a99e/docs/hermes-omo.png
+  - https://raw.githubusercontent.com/omoresearch/hermes-omo-space/fb471a637fdc5ed3be8cdb7f031c57b1bd75a99e/docs/hermes-board.png
+platforms: []
+capabilities:
+  provides_tools:
+    - omo_status
+    - omo_notify
+    - omo_create_world
+  provides_hooks:
+    - on_session_start
+    - on_session_end
+    - on_session_finalize
+    - pre_llm_call
+    - pre_tool_call
+    - post_tool_call
+    - post_compaction
+    - api_request_error
+    - subagent_start
+    - subagent_stop
+    - kanban_task_claimed
+    - kanban_task_completed
+    - kanban_task_blocked
+  provides_middleware: []
+  requires_env: []
