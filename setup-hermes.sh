@@ -241,65 +241,31 @@ if is_termux; then
     fi
     echo -e "${GREEN}✓${NC} Dependencies installed"
 else
-    # Prefer uv sync with lockfile (hash-verified installs) when available,
-    # fall back to pip install for compatibility or when lockfile is stale.
-    #
-    # Multi-tier pip fallback. Goal: ONE compromised PyPI package
-    # (mistralai 2.4.6 in May 2026 → quarantined) shouldn't silently demote
-    # a fresh setup to "core only". Edit _BROKEN_EXTRAS when a transitive
-    # breaks; users keep voice / honcho / google / slack / matrix etc. even
-    # if mistral can't resolve.
-    _BROKEN_EXTRAS=()  # populate when an extra becomes unresolvable
-    _ALL_EXTRAS=(
-        modal daytona vercel messaging matrix cron cli dev tts-premium slack
-        pty honcho mcp homeassistant sms acp voice dingtalk feishu google
-        bedrock web youtube
-    )
-    _SAFE_EXTRAS=()
-    for _e in "${_ALL_EXTRAS[@]}"; do
-        _skip=false
-        for _b in "${_BROKEN_EXTRAS[@]}"; do
-            [ "$_e" = "$_b" ] && _skip=true && break
-        done
-        [ "$_skip" = false ] && _SAFE_EXTRAS+=("$_e")
-    done
-    _SAFE_SPEC=".[$(IFS=,; echo "${_SAFE_EXTRAS[*]}")]"
-    _try_install() {
-        $UV_CMD pip install -e ".[all]" \
-            || $UV_CMD pip install -e "$_SAFE_SPEC" \
-            || $UV_CMD pip install -e "."
-    }
+    if [ ! -f "uv.lock" ]; then
+        echo -e "${RED}✗${NC} uv.lock not found — refusing unhashed dependency installation." >&2
+        exit 1
+    fi
 
-    if [ -f "uv.lock" ]; then
-        # Hash-verified install (preferred). The lockfile records SHA256
-        # hashes for every transitive — a compromised transitive would have
-        # a different hash and be REJECTED by uv. This is the only path
-        # that protects against transitive-package supply-chain attacks
-        # (the direct deps in pyproject.toml are exact-pinned, but
-        # `uv pip install` re-resolves transitives fresh from PyPI).
-        echo -e "${CYAN}→${NC} Using uv.lock for hash-verified installation..."
-        echo -e "${CYAN}→${NC} (first run on a fresh venv can take 1-5 minutes; uv prints progress below)"
-        # Critical flag choice: `--extra all`, NOT `--all-extras`. The
-        # latter installs every [project.optional-dependencies] key,
-        # bypassing the curated [all] extra and pulling backends like
-        # [matrix] (python-olm needs make on Windows) and [rl] (git+https
-        # deps that fail offline). See pyproject.toml's [all] for the
-        # curated set, and tools/lazy_deps.py for backends that install
-        # at first use.
-        # Also: stream stderr through directly so the user sees uv's
-        # progress UI instead of staring at a frozen prompt.
-        if run_locked_uv_sync "$SCRIPT_DIR/venv"; then
-            echo -e "${GREEN}✓${NC} Dependencies installed (hash-verified via uv.lock)"
-        else
-            echo -e "${YELLOW}⚠${NC} Lockfile sync failed (see uv output above)."
-            echo -e "${YELLOW}⚠${NC} Falling back to PyPI resolve — transitives will NOT be hash-verified."
-            _try_install
-            echo -e "${GREEN}✓${NC} Dependencies installed (transitives re-resolved, not hash-verified)"
-        fi
+    # Hash-verified install (required). The lockfile records SHA256 hashes for
+    # every transitive — a compromised transitive has a different hash and is
+    # rejected by uv. Never fall back to `uv pip install`, which re-resolves
+    # transitives fresh from PyPI without hash verification.
+    echo -e "${CYAN}→${NC} Using uv.lock for hash-verified installation..."
+    echo -e "${CYAN}→${NC} (first run on a fresh venv can take 1-5 minutes; uv prints progress below)"
+    # Critical flag choice: `--extra all`, NOT `--all-extras`. The
+    # latter installs every [project.optional-dependencies] key,
+    # bypassing the curated [all] extra and pulling backends like
+    # [matrix] (python-olm needs make on Windows) and [rl] (git+https
+    # deps that fail offline). See pyproject.toml's [all] for the
+    # curated set, and tools/lazy_deps.py for backends that install
+    # at first use.
+    # Also: stream stderr through directly so the user sees uv's
+    # progress UI instead of staring at a frozen prompt.
+    if run_locked_uv_sync "$SCRIPT_DIR/venv"; then
+        echo -e "${GREEN}✓${NC} Dependencies installed (hash-verified via uv.lock)"
     else
-        echo -e "${YELLOW}⚠${NC} uv.lock not found — installing without hash verification of transitives."
-        _try_install
-        echo -e "${GREEN}✓${NC} Dependencies installed (transitives re-resolved, not hash-verified)"
+        echo -e "${RED}✗${NC} Lockfile sync failed (see uv output above). Aborting rather than installing unverified packages." >&2
+        exit 1
     fi
 fi
 
